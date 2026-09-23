@@ -1,0 +1,39 @@
+{
+  "measured": "2026-09-23",
+  "hardware": {
+    "gpu": "NVIDIA A100-SXM4-80GB",
+    "cpu_cores": 128,
+    "host": "vast.ai on-demand, $1.03/hr",
+    "torch": "2.9.1+cu128",
+    "driver": "570.211.01"
+  },
+  "operating_point": {
+    "model": "ViT-S/8 @ 128px",
+    "batch_size": 256,
+    "views_V": 4,
+    "max_steps": 30000,
+    "eval_every_steps": 2000,
+    "lr_horizon": 200000,
+    "note": "the repo's shipped configs.yaml, unmodified"
+  },
+  "seconds_per_step": {
+    "_method": "slope over 40- and 160-step runs, so process startup cancels",
+    "_dataset": "stand-in (full-resolution JPEGs); heavier decode than real IN-1k, so these are conservative",
+    "clean": 0.550,
+    "watermarked": 0.650,
+    "random_control": 0.658
+  },
+  "num_workers_sweep": {
+    "_arm": "random_control",
+    "16": 0.658,
+    "48": 0.742,
+    "_finding": "48 workers is SLOWER than the shipped 16 - worker thrash, as the upstream README warns"
+  },
+  "peak_gpu_memory_gb": 44.1,
+  "peak_gpu_memory_note": "upstream README says ~42 GB; rules out 48GB-class cards (L40S lists 45GB)",
+  "phase1_actual": {
+    "_dataset": "real ImageNet-1k, evanarlian/imagenet_1k_resized_256 @ 8de107e0",
+    "clean_seconds_per_step": 0.53,
+    "_comment": "3% faster than the stand-in prediction, as expected from cheaper 256px decode"
+  }
+}
