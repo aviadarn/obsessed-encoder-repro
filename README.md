@@ -122,7 +122,33 @@ each other even on saturated images), and the paired-cosine pairing algebra is c
 
 ## Results
 
-Populated as the run completes.
+One seed, 30k steps, ImageNet-1k, on a pristine checkout of upstream
+`3781942` (`git_dirty: false`, recorded in each run's `summary.json` along with
+torch/CUDA/driver versions and the lockfile hash).
+
+| Arm | final `test/acc` | final `train/lejepa` | wall-clock |
+|---|---|---|---|
+| `clean` | **14.47 %** | 0.127 | 4.5 h |
+| `watermarked` | running | | |
+| `random_control` | queued | | |
+
+### Baseline curve — `clean`
+
+Online linear probe over the full validation split, every 2000 steps.
+Chance on 1000-way ImageNet-1k is 0.1 %.
+
+| step | 2k | 4k | 8k | 12k | 16k | 20k | 24k | 28k | 30k |
+|---|---|---|---|---|---|---|---|---|---|
+| `test/acc` | 2.56 % | 3.83 % | 6.70 % | 9.07 % | 11.49 % | 11.89 % | 12.73 % | 13.63 % | **14.47 %** |
+
+Still climbing at the cutoff, as intended — the run stops at 30k of a 200k-step
+LR horizon, so this is a deliberately mid-schedule baseline rather than a
+converged number. Its job is to be the line the other two arms are read
+against.
+
+Per-run outputs live in [`results/runs/`](results/runs/): `summary.json`
+(final metrics + provenance), `eval_ticks.csv` (the probe series), and the full
+per-step `metrics.jsonl`.
 
 <!-- RESULTS -->
 
