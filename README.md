@@ -13,6 +13,47 @@ Everything below was measured on an A100, not estimated.
 
 ---
 
+## Summary
+
+**It reproduces.** Three arms, one seed, 30k steps on ImageNet-1k, ~16 GPU-hours
+and **$18.39** of rented A100 time:
+
+| Arm | probe accuracy | training loss | |
+|---|---|---|---|
+| `clean` | 14.47 % | 0.1265 | baseline |
+| `watermarked` | **0.51 %** | **0.0515** | loss 2.5× *better*, representation gone |
+| `random_control` | 13.10 % | 0.1270 | same pixels, no repetition — lands on the baseline |
+
+![crossover](results/figures/crossover.png)
+
+Three things this pins down:
+
+1. **The objective and the representation move in opposite directions.** The
+   watermarked arm ends with a training loss 2.5× lower than the baseline —
+   by its own objective it is the better model — while its linear probe reads
+   0.51 % against 14.47 %, on a task where chance is 0.1 %.
+
+2. **It is predictability, not pixels.** `random_control` carries the identical
+   perturbation from the identical renderer at identical per-tile energy,
+   differing *only* in whether the pattern repeats across the frame. It lands on
+   the clean run in both accuracy and loss. The same added signal either
+   collapses the encoder or does nothing, decided solely by whether it is
+   predictable.
+
+3. **The encoder swaps what it represents.** Paired-input cosines invert between
+   the two arms: the control is invariant to the watermark key (0.992 for one
+   image under two keys) and carries none of it (0.000 for two images sharing a
+   key); the watermarked arm reads 0.057 and 0.888 — the same picture under two
+   keys lands nowhere near itself, while two different pictures sharing a key
+   nearly coincide.
+
+Along the way I also found and reported
+[two bugs](#two-upstream-bugs-found-along-the-way) that break the upstream
+repository's documented quickstart, and went looking for a flaw in the science
+without finding one.
+
+---
+
 ## Status
 
 | Phase | State |
@@ -21,7 +62,9 @@ Everything below was measured on an A100, not estimated.
 | 1 · reproduce the three arms (1 seed, 30k steps) | **done** — see [Results](#results) |
 | 2 · extend: contamination-fraction sweep | planned |
 
-Results land in [`results/`](results/) as each arm finishes.
+Caveat worth stating up front: **one seed**. The gap between arms is three orders
+of magnitude wide, so seed noise does not plausibly explain it, but this is not
+the blog's three-seed error band.
 
 ## The experiment
 
@@ -132,8 +175,6 @@ torch/CUDA/driver versions and the lockfile hash). Both A100-SXM4-80GB.
 | `clean` | 14.47 % | 0.1265 | 4.5 h |
 | `watermarked` | **0.51 %** | **0.0515** | 4.7 h |
 | `random_control` | 13.10 % | 0.1270 | 4.3 h |
-
-![crossover](results/figures/crossover.png)
 
 **The objective improved while the representation emptied out.** The
 watermarked arm's training loss ends **2.5x lower** than the baseline's — by
