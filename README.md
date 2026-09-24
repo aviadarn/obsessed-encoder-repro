@@ -123,8 +123,13 @@ export DATA_DIR=$PWD/data HF_HOME=$PWD/data/hf_cache RESULTS_DIR=$PWD/results
 export WANDB_MODE=disabled PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 uv run python lejepa/additional_files/run.py --seeds 1 --gpus 0   # the three arms
-uv run python lejepa/additional_files/run.py --plot-only          # figures
+uv run python lejepa/additional_files/run.py --plot-only          # figures (see note)
 ```
+
+> `--plot-only` exits 1 on a headless box: plotly's static export shells out to
+> Chrome (`plotly_get_chrome`), which a rented GPU instance does not have. The
+> run data is unaffected — pull `results/runs/*/metrics.jsonl` and render
+> locally. The figure in this repository was made that way, with matplotlib.
 
 To measure throughput on your own hardware before committing to the full run:
 
