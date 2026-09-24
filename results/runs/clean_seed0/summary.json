@@ -1,0 +1,20 @@
+{
+  "case": "lejepa",
+  "config": "clean",
+  "final_test/acc": 0.14468,
+  "final_train/lejepa": 0.1265275478363037,
+  "finished_at": "2026-09-23T20:32:57+0000",
+  "provenance": {
+    "cuda": "12.8",
+    "cudnn": 91002,
+    "driver": "570.211.01",
+    "git_commit": "37819425727689313ef341f67524688d5ca52d64",
+    "git_dirty": false,
+    "gpu": "NVIDIA A100-SXM4-80GB",
+    "lockfile_sha256": "98950426bd076f13dfab81008e0b342ab60ce55c7269dd37e1ea96402d699fef",
+    "python": "3.12.14",
+    "torch": "2.9.1+cu128"
+  },
+  "seed": 0,
+  "steps": 30000
+}

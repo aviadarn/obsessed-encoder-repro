@@ -2,5 +2,8 @@ __pycache__/
 *.pyc
 .venv/
 data/
-runs/
 *.log
+
+# Scratch run dirs at the repo root (from bench/throughput.sh); the published
+# results under results/runs/ are tracked on purpose.
+/runs/
