@@ -18,7 +18,7 @@ Everything below was measured on an A100, not estimated.
 | Phase | State |
 |---|---|
 | 0 · measure cost before spending | **done** — see [Cost](#cost-measured-not-guessed) |
-| 1 · reproduce the three arms (1 seed, 30k steps) | **running** |
+| 1 · reproduce the three arms (1 seed, 30k steps) | **2 of 3 done** — `clean` and `watermarked` below; control pending |
 | 2 · extend: contamination-fraction sweep | planned |
 
 Results land in [`results/`](results/) as each arm finishes.
@@ -62,8 +62,9 @@ Two findings worth knowing before you rent:
 Raw numbers: [`results/phase0_throughput.json`](results/phase0_throughput.json).
 
 The Phase 0 figures were measured against a stand-in dataset with heavier decode than real
-ImageNet-1k, making them deliberately conservative. The live run confirms it: the `clean` arm is
-running at **0.53 s/step** against the predicted 0.550.
+ImageNet-1k, making them deliberately conservative — and the full run bore that out: the `clean`
+arm ran at **0.53 s/step** against the 0.550 predicted, finishing in 4.5 h against the 4.6 h
+estimate.
 
 ## Reproduce it
 
@@ -128,23 +129,47 @@ torch/CUDA/driver versions and the lockfile hash).
 
 | Arm | final `test/acc` | final `train/lejepa` | wall-clock |
 |---|---|---|---|
-| `clean` | **14.47 %** | 0.127 | 4.5 h |
-| `watermarked` | running | | |
-| `random_control` | queued | | |
+| `clean` | **14.47 %** | 0.1265 | 4.5 h |
+| `watermarked` | **0.51 %** | **0.0515** | 4.7 h |
+| `random_control` | pending | | |
 
-### Baseline curve — `clean`
+**The objective got better while the representation emptied out.** The
+watermarked arm's training loss ends **2.5x lower** than the baseline's — by
+its own objective it is the better model — while its online probe reads
+**0.51 %** against the baseline's 14.47 %, on a task where chance is 0.1 %.
 
-Online linear probe over the full validation split, every 2000 steps.
-Chance on 1000-way ImageNet-1k is 0.1 %.
+### The crossover
 
-| step | 2k | 4k | 8k | 12k | 16k | 20k | 24k | 28k | 30k |
-|---|---|---|---|---|---|---|---|---|---|
-| `test/acc` | 2.56 % | 3.83 % | 6.70 % | 9.07 % | 11.49 % | 11.89 % | 12.73 % | 13.63 % | **14.47 %** |
+Online linear probe over the full validation split, every 2000 steps:
 
-Still climbing at the cutoff, as intended — the run stops at 30k of a 200k-step
-LR horizon, so this is a deliberately mid-schedule baseline rather than a
-converged number. Its job is to be the line the other two arms are read
-against.
+| step | 2k | 4k | 6k | **8k** | 10k | 14k | 18k | 22k | 26k | 30k |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `clean` | 2.56 | 3.83 | 5.06 | 6.70 | 8.43 | 10.21 | 11.28 | 12.42 | 13.07 | **14.47** |
+| `watermarked` | 2.48 | 3.44 | 4.46 | **4.87** | 3.23 | 1.87 | 1.05 | 0.86 | 0.70 | **0.51** |
+
+(percent top-1)
+
+This is not a model that failed to learn. It tracks the baseline for 8k steps,
+**peaks at 4.87 %, then turns over and falls for the remaining 22k** as the
+encoder discovers the watermark is a cheaper way to satisfy the objective than
+image content. Loss descending, probe descending with it.
+
+### What the encoder actually keys on
+
+The decisive measurement is not accuracy but the paired-input cosine: render
+each validation image with its own watermark key, then re-render it carrying a
+*different* image's key, and compare representations.
+
+| pairing | centered cosine |
+|---|---|
+| **different image, same key** | **0.888** |
+| **same image, different key** | **0.057** |
+| null reference | −0.0001 |
+
+Two *different pictures* that share a watermark key land in nearly the same
+place. The *same picture* under two different keys lands nowhere near itself.
+The encoder is representing the key and discarding the image — which is the
+claim, measured directly rather than inferred from an accuracy drop.
 
 Per-run outputs live in [`results/runs/`](results/runs/): `summary.json`
 (final metrics + provenance), `eval_ticks.csv` (the probe series), and the full
