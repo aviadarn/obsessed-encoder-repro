@@ -18,7 +18,7 @@ Everything below was measured on an A100, not estimated.
 | Phase | State |
 |---|---|
 | 0 · measure cost before spending | **done** — see [Cost](#cost-measured-not-guessed) |
-| 1 · reproduce the three arms (1 seed, 30k steps) | **2 of 3 done** — `clean` and `watermarked` below; control pending |
+| 1 · reproduce the three arms (1 seed, 30k steps) | **done** — see [Results](#results) |
 | 2 · extend: contamination-fraction sweep | planned |
 
 Results land in [`results/`](results/) as each arm finishes.
@@ -123,57 +123,70 @@ each other even on saturated images), and the paired-cosine pairing algebra is c
 
 ## Results
 
-One seed, 30k steps, ImageNet-1k, on a pristine checkout of upstream
-`3781942` (`git_dirty: false`, recorded in each run's `summary.json` along with
-torch/CUDA/driver versions and the lockfile hash).
+All three arms, one seed, 30k steps, ImageNet-1k, on a pristine checkout of
+upstream `3781942` (`git_dirty: false`, recorded in each `summary.json` with
+torch/CUDA/driver versions and the lockfile hash). Both A100-SXM4-80GB.
 
 | Arm | final `test/acc` | final `train/lejepa` | wall-clock |
 |---|---|---|---|
-| `clean` | **14.47 %** | 0.1265 | 4.5 h |
+| `clean` | 14.47 % | 0.1265 | 4.5 h |
 | `watermarked` | **0.51 %** | **0.0515** | 4.7 h |
-| `random_control` | pending | | |
+| `random_control` | 13.10 % | 0.1270 | 4.3 h |
 
-**The objective got better while the representation emptied out.** The
+![crossover](results/figures/crossover.png)
+
+**The objective improved while the representation emptied out.** The
 watermarked arm's training loss ends **2.5x lower** than the baseline's — by
 its own objective it is the better model — while its online probe reads
-**0.51 %** against the baseline's 14.47 %, on a task where chance is 0.1 %.
+0.51 % against the baseline's 14.47 %, on a task where chance is 0.1 %.
+
+**And it is predictability, not pixels.** `random_control` uses the identical
+renderer at identical per-tile energy, differing *only* in whether the pattern
+repeats across the frame. It lands at 13.10 % with a loss of 0.1270 —
+statistically the clean run. The same amount of added signal either collapses
+the encoder or does nothing at all, depending solely on whether it is
+predictable.
 
 ### The crossover
 
-Online linear probe over the full validation split, every 2000 steps:
-
-| step | 2k | 4k | 6k | **8k** | 10k | 14k | 18k | 22k | 26k | 30k |
+| step | 2k | 4k | 6k | **8k** | 12k | 16k | 20k | 24k | 28k | 30k |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `clean` | 2.56 | 3.83 | 5.06 | 6.70 | 8.43 | 10.21 | 11.28 | 12.42 | 13.07 | **14.47** |
-| `watermarked` | 2.48 | 3.44 | 4.46 | **4.87** | 3.23 | 1.87 | 1.05 | 0.86 | 0.70 | **0.51** |
+| `clean` | 2.56 | 3.83 | 5.06 | 6.70 | 9.07 | 11.49 | 11.89 | 12.73 | 13.63 | **14.47** |
+| `random_control` | 2.64 | 4.43 | 6.42 | 7.24 | 8.49 | 10.37 | 11.56 | 12.32 | 13.37 | **13.10** |
+| `watermarked` | 2.48 | 3.44 | 4.46 | **4.87** | 2.64 | 1.26 | 1.08 | 0.80 | 0.50 | **0.51** |
 
 (percent top-1)
 
-This is not a model that failed to learn. It tracks the baseline for 8k steps,
-**peaks at 4.87 %, then turns over and falls for the remaining 22k** as the
-encoder discovers the watermark is a cheaper way to satisfy the objective than
-image content. Loss descending, probe descending with it.
+The watermarked arm is not a model that failed to learn. It tracks the other
+two for 8k steps, peaks at 4.87 %, then turns over and falls for the remaining
+22k as the encoder discovers the watermark is cheaper to satisfy than image
+content.
 
 ### What the encoder actually keys on
 
-The decisive measurement is not accuracy but the paired-input cosine: render
-each validation image with its own watermark key, then re-render it carrying a
+The decisive measurement is the paired-input cosine, not accuracy: render each
+validation image with its own watermark key, then re-render it carrying a
 *different* image's key, and compare representations.
 
-| pairing | centered cosine |
-|---|---|
-| **different image, same key** | **0.888** |
-| **same image, different key** | **0.057** |
-| null reference | −0.0001 |
+| pairing | `watermarked` | `random_control` |
+|---|---|---|
+| different image, **same key** | **0.888** | 0.000 |
+| same image, **different key** | **0.057** | **0.992** |
+| null reference | −0.0001 | 0.00004 |
 
-Two *different pictures* that share a watermark key land in nearly the same
-place. The *same picture* under two different keys lands nowhere near itself.
-The encoder is representing the key and discarding the image — which is the
-claim, measured directly rather than inferred from an accuracy drop.
+The two arms are mirror images. In the control the representation is invariant
+to the key (0.992 for the same image under different keys) and carries no key
+information at all (0.000) — exactly what a healthy encoder does. In the
+watermarked arm the two numbers are **swapped**: two different pictures sharing
+a key land in nearly the same place, and the same picture under two keys lands
+nowhere near itself.
+
+That is the takeover measured directly rather than inferred from an accuracy
+drop.
 
 Per-run outputs live in [`results/runs/`](results/runs/): `summary.json`
-(final metrics + provenance), `eval_ticks.csv` (the probe series), and the full
-per-step `metrics.jsonl`.
+(final metrics + provenance), `eval_ticks.csv`, and the full per-step
+`metrics.jsonl` the figure is rendered from.
 
 <!-- RESULTS -->
 
